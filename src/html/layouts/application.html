@@ -1,0 +1,22 @@
+{% from 'macros/helpers.html' import sprite %}
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}{{ title }}{% endblock %}</title>
+    <meta http-equiv=X-UA-Compatible content="IE=edge,chrome=1">
+    <meta http-equiv="Accept-CH" content="DPR,Viewport-Width,Width">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel=stylesheet>
+    <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.css">
+    <link rel="stylesheet" href="stylesheets/app.css">
+    {% include "shared/app-icons.html" %}
+    {% block head %}{% endblock %}
+</head>
+<body>
+{% block content %}{% endblock %}
+{% block javascript %}
+<script src="javascripts/app.js"></script>
+{% endblock %}
+</body>
+</html>

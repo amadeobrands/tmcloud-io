@@ -1,0 +1,40 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-display: optional;
+  -webkit-font-kerning: normal;
+  font-kerning: normal;
+  font-variant-numeric: lining-nums slashed-zero;
+  -webkit-font-variant-ligatures: common-ligatures contextual;
+          font-variant-ligatures: common-ligatures contextual;
+  -webkit-font-feature-settings: "kern", "liga", "clig", "calt", "lnum", "zero";
+          font-feature-settings: "kern", "liga", "clig", "calt", "lnum", "zero";
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision; }
+
+body * {
+  font-family: inherit !important; }
+
+html, body {
+  padding: 0;
+  margin: 0;
+  min-height: 100vh; }
+
+main {
+  min-height: 100vh; }
+
+h1 {
+  margin: 0; }
+
+.logo {
+  transform: translateX(-16px); }
+
+#apex {
+  width: 100%;
+  height: calc(100vh - 52px);
+  border: none;
+  position: relative;
+  top: -68px; }
+
+/*# sourceMappingURL=data:application/json;charset=utf8;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbImJhc2UvX3R5cG9ncmFwaHkuc2NzcyIsImFwcC5zY3NzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQUFBO0VBQ0UsbUpBQWtKO0VBQ2xKLHVCQUFzQjtFQUN0Qiw2QkFBNEI7RUFDNUIscUJBQW9CO0VBQ3BCLCtDQUE4QztFQUM5Qyw0REFBbUQ7VUFBbkQsb0RBQW1EO0VBQ25ELDhFQUFxRTtVQUFyRSxzRUFBcUU7RUFDckUsK0JBQThCO0VBQzlCLG9DQUFtQztFQUNuQyxtQ0FBa0M7RUFDbEMsbUNBQWtDLEVBQ25DOztBQUVEO0VBQ0UsZ0NBQStCLEVBQ2hDOztBQ2REO0VBQ0UsV0FBVTtFQUNWLFVBQVM7RUFDVCxrQkFBaUIsRUFDbEI7O0FBRUQ7RUFDRSxrQkFBaUIsRUFDbEI7O0FBRUQ7RUFDRSxVQUFTLEVBQ1Y7O0FBRUQ7RUFDRSw2QkFBNEIsRUFDN0I7O0FBRUQ7RUFDRSxZQUFXO0VBQ1gsMkJBQTBCO0VBQzFCLGFBQVk7RUFDWixtQkFBa0I7RUFDbEIsV0FBVSxFQUNYIiwiZmlsZSI6ImFwcC5jc3MiLCJzb3VyY2VzQ29udGVudCI6WyJib2R5IHtcbiAgZm9udC1mYW1pbHk6IC1hcHBsZS1zeXN0ZW0sIEJsaW5rTWFjU3lzdGVtRm9udCwgXCJTZWdvZSBVSVwiLCBIZWx2ZXRpY2EsIEFyaWFsLCBzYW5zLXNlcmlmLCBcIkFwcGxlIENvbG9yIEVtb2ppXCIsIFwiU2Vnb2UgVUkgRW1vamlcIiwgXCJTZWdvZSBVSSBTeW1ib2xcIjtcbiAgZm9udC1kaXNwbGF5OiBvcHRpb25hbDtcbiAgLXdlYmtpdC1mb250LWtlcm5pbmc6IG5vcm1hbDtcbiAgZm9udC1rZXJuaW5nOiBub3JtYWw7XG4gIGZvbnQtdmFyaWFudC1udW1lcmljOiBsaW5pbmctbnVtcyBzbGFzaGVkLXplcm87XG4gIGZvbnQtdmFyaWFudC1saWdhdHVyZXM6IGNvbW1vbi1saWdhdHVyZXMgY29udGV4dHVhbDtcbiAgZm9udC1mZWF0dXJlLXNldHRpbmdzOiBcImtlcm5cIiwgXCJsaWdhXCIsIFwiY2xpZ1wiLCBcImNhbHRcIiwgXCJsbnVtXCIsIFwiemVyb1wiO1xuICAtd2Via2l0LXRleHQtc2l6ZS1hZGp1c3Q6IDEwMCU7XG4gIC13ZWJraXQtZm9udC1zbW9vdGhpbmc6IGFudGlhbGlhc2VkO1xuICAtbW96LW9zeC1mb250LXNtb290aGluZzogZ3JheXNjYWxlO1xuICB0ZXh0LXJlbmRlcmluZzogZ2VvbWV0cmljUHJlY2lzaW9uO1xufVxuXG5ib2R5ICoge1xuICBmb250LWZhbWlseTogaW5oZXJpdCAhaW1wb3J0YW50O1xufVxuIiwiQGltcG9ydCBcImJhc2UvdHlwb2dyYXBoeVwiO1xuXG5odG1sLCBib2R5IHtcbiAgcGFkZGluZzogMDtcbiAgbWFyZ2luOiAwO1xuICBtaW4taGVpZ2h0OiAxMDB2aDtcbn1cblxubWFpbiB7XG4gIG1pbi1oZWlnaHQ6IDEwMHZoO1xufVxuXG5oMSB7XG4gIG1hcmdpbjogMDtcbn1cblxuLmxvZ28ge1xuICB0cmFuc2Zvcm06IHRyYW5zbGF0ZVgoLTE2cHgpO1xufVxuXG4jYXBleCB7XG4gIHdpZHRoOiAxMDAlO1xuICBoZWlnaHQ6IGNhbGMoMTAwdmggLSA1MnB4KTtcbiAgYm9yZGVyOiBub25lO1xuICBwb3NpdGlvbjogcmVsYXRpdmU7XG4gIHRvcDogLTY4cHg7XG59XG4iXX0= */
