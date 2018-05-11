@@ -181,6 +181,7 @@ resource "digitalocean_loadbalancer" "loadbalancer" {
     entry_protocol = "https"
     target_port = 443
     target_protocol = "https"
+    tls_passthrough = true
   }
   name = "${var.swarm_env}-swarm-loadbalancer"
   region = "${var.do_region}"
