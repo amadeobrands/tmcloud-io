@@ -198,3 +198,16 @@ resource "digitalocean_loadbalancer" "loadbalancer" {
   region = "${var.do_region}"
   droplet_tag = "${var.swarm_env}-docker-swarm-worker"
 }
+
+data "aws_route53_zone" "selected" {
+  name = "tmcloud.io."
+}
+
+resource "aws_route53_record" "swarm-loadbalancer" {
+  depends_on = ["digitalocean_loadbalancer.loadbalancer"]
+  zone_id = "${data.aws_route53_zone.selected.zone_id}"
+  name = "${var.swarm_env}.${data.aws_route53_zone.selected.name}"
+  type = "A"
+  ttl = "300"
+  records = ["${digitalocean_loadbalancer.loadbalancer.ip}"]
+}
