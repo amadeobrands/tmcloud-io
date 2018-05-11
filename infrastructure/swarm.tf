@@ -1,18 +1,18 @@
 resource "digitalocean_tag" "manager" {
-  name = "manager"
+  name = "${var.swarm_env}-docker-swarm-manager"
 }
 
 resource "digitalocean_tag" "worker" {
-  name = "worker"
+  name = "${var.swarm_env}-docker-swarm-worker"
 }
 
 resource "digitalocean_tag" "docker-swarm-env" {
-  name = "docker-swarm-${var.swarm_env}"
+  name = "${var.swarm_env}-docker-swarm"
 }
 
 resource "digitalocean_droplet" "manager-primary" {
   image = "${var.do_image}"
-  name = "${var.swarm_env}-swarm-manager-primary"
+  name = "${var.swarm_env}-swarm-manager-leader"
   region = "${var.do_region}"
   size = "s-2vcpu-4gb"
   private_networking = true
@@ -61,7 +61,7 @@ EOF
       "docker stack deploy -c /usr/local/src/docker-compose.yml swarmpit"
     ]
   }
-  tags = ["manager", "docker-swarm-${var.swarm_env}"]
+  tags = ["${var.swarm_env}-docker-swarm-manager", "${var.swarm_env}-docker-swarm"]
 }
 
 
@@ -113,7 +113,7 @@ EOF
       "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.volumes_s3_region}"
     ]
   }
-  tags = ["manager", "docker-swarm-${var.swarm_env}"]
+  tags = ["${var.swarm_env}-docker-swarm-manager", "${var.swarm_env}-docker-swarm"]
 }
 
 
@@ -165,6 +165,24 @@ EOF
       "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.volumes_s3_region}"
     ]
   }
-  tags = ["worker", "docker-swarm-${var.swarm_env}"]
+  tags = ["${var.swarm_env}-docker-swarm-worker", "${var.swarm_env}-docker-swarm"]
 }
 
+
+resource "digitalocean_loadbalancer" "loadbalancer" {
+  "forwarding_rule" {
+    entry_port = 80
+    entry_protocol = "http"
+    target_port = 80
+    target_protocol = "http"
+  }
+  "forwarding_rule" {
+    entry_port = 443
+    entry_protocol = "https"
+    target_port = 443
+    target_protocol = "https"
+  }
+  name = "${var.swarm_env}-swarm-loadbalancer"
+  region = "${var.do_region}"
+  droplet_tag = "${var.swarm_env}-docker-swarm-worker"
+}
