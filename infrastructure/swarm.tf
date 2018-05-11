@@ -29,7 +29,7 @@ resource "digitalocean_droplet" "manager-primary" {
   }
   provisioner "file" {
     source = "swarmpit/"
-    destination = "/home/root"
+    destination = "/usr/local/src"
   }
   provisioner "remote-exec" {
     scripts = [
@@ -50,16 +50,9 @@ resource "digitalocean_droplet" "manager-primary" {
           -v /var/run/docker.sock:/var/run/docker.sock \
           mrjgreen/aws-swarm-init
 EOF
-
-      /*
-      "sudo docker swarm init",
-      "sudo docker swarm join-token --quiet manager > /home/ubuntu/manager-token",
-      "sudo docker swarm join-token --quiet worker > /home/ubuntu/worker-token",
-
-      # install S3FS volume driver
-      "sudo docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.volumes_s3_region}"
-      "sudo docker stack deploy -c /home/root/swarmpit/docker-compose.yml swarmpit"
-      */
+      , # install S3FS volume driver
+      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.volumes_s3_region}",
+      "docker stack deploy -c /usr/local/src/docker-compose.yml swarmpit"
     ]
   }
   tags = ["manager", "docker-swarm-${var.swarm_env}"]
@@ -104,8 +97,8 @@ resource "digitalocean_droplet" "manager-replica" {
           -v /var/run/docker.sock:/var/run/docker.sock \
           mrjgreen/aws-swarm-init
 EOF
-      # install S3FS volume driver
-      # "sudo docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.volumes_s3_region}"
+      , # install S3FS volume driver
+      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.volumes_s3_region}"
     ]
   }
   tags = ["manager", "docker-swarm-${var.swarm_env}"]
@@ -113,7 +106,7 @@ EOF
 
 
 resource "digitalocean_droplet" "worker" {
-  depends_on = ["digitalocean_droplet.manager-primary"]
+  depends_on = ["digitalocean_droplet.manager-replica"]
   count = "${var.swarm_workers_count}"
   image = "ubuntu-18-04-x64"
   name = "${var.swarm_env}-swarm-worker-${count.index}"
@@ -150,8 +143,8 @@ resource "digitalocean_droplet" "worker" {
           -v /var/run/docker.sock:/var/run/docker.sock \
           mrjgreen/aws-swarm-init
 EOF
-      # install S3FS volume driver
-      #"sudo docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.volumes_s3_region}"
+      , # install S3FS volume driver
+      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.volumes_s3_region}"
     ]
   }
   tags = ["worker", "docker-swarm-${var.swarm_env}"]
