@@ -11,9 +11,9 @@ resource "digitalocean_tag" "docker-swarm-env" {
 }
 
 resource "digitalocean_droplet" "manager-primary" {
-  image = "ubuntu-18-04-x64"
+  image = "${var.do_image}"
   name = "${var.swarm_env}-swarm-manager-primary"
-  region = "fra1"
+  region = "${var.do_region}"
   size = "s-2vcpu-4gb"
   private_networking = true
   monitoring = true
@@ -27,15 +27,21 @@ resource "digitalocean_droplet" "manager-primary" {
     private_key = "${file(var.pvt_key)}"
     timeout = "2m"
   }
-  provisioner "file" {
-    source = "swarmpit/"
-    destination = "/usr/local/src"
+  provisioner "remote-exec" {
+    inline = [
+      "sudo apt-get update",
+      "sudo apt-get upgrade"
+    ]
   }
   provisioner "remote-exec" {
     scripts = [
       "provisioning/firewall.sh",
       "provisioning/docker.sh"
     ]
+  }
+  provisioner "file" {
+    source = "swarmpit/"
+    destination = "/usr/local/src"
   }
   provisioner "remote-exec" {
     inline = [
@@ -46,7 +52,7 @@ resource "digitalocean_droplet" "manager-primary" {
           -e NODE_IP=${self.ipv4_address_private} \
           -e AWS_ACCESS_KEY_ID=${var.swarm_discovery_s3_access_key_id} \
           -e AWS_SECRET_ACCESS_KEY=${var.swarm_discovery_s3_secret_key} \
-          -e AWS_REGION=eu-central-1 \
+          -e AWS_REGION=${var.swarm_discovery_s3_region} \
           -v /var/run/docker.sock:/var/run/docker.sock \
           mrjgreen/aws-swarm-init
 EOF
@@ -62,9 +68,9 @@ EOF
 resource "digitalocean_droplet" "manager-replica" {
   depends_on = ["digitalocean_droplet.manager-primary"]
   count = "${var.swarm_manager_replicas_count}"
-  image = "ubuntu-18-04-x64"
+  image = "${var.do_image}"
   name = "${var.swarm_env}-swarm-manager-${count.index}"
-  region = "fra1"
+  region = "${var.do_region}"
   size = "s-2vcpu-4gb"
   private_networking = true
   monitoring = true
@@ -77,6 +83,12 @@ resource "digitalocean_droplet" "manager-replica" {
     type = "ssh"
     private_key = "${file(var.pvt_key)}"
     timeout = "2m"
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "sudo apt-get update",
+      "sudo apt-get upgrade"
+    ]
   }
   provisioner "remote-exec" {
     scripts = [
@@ -93,7 +105,7 @@ resource "digitalocean_droplet" "manager-replica" {
           -e NODE_IP=${self.ipv4_address_private} \
           -e AWS_ACCESS_KEY_ID=${var.swarm_discovery_s3_access_key_id} \
           -e AWS_SECRET_ACCESS_KEY=${var.swarm_discovery_s3_secret_key} \
-          -e AWS_REGION=eu-central-1 \
+          -e AWS_REGION=${var.swarm_discovery_s3_region} \
           -v /var/run/docker.sock:/var/run/docker.sock \
           mrjgreen/aws-swarm-init
 EOF
@@ -108,9 +120,9 @@ EOF
 resource "digitalocean_droplet" "worker" {
   depends_on = ["digitalocean_droplet.manager-replica"]
   count = "${var.swarm_workers_count}"
-  image = "ubuntu-18-04-x64"
+  image = "${var.do_image}"
   name = "${var.swarm_env}-swarm-worker-${count.index}"
-  region = "fra1"
+  region = "${var.do_region}"
   size = "s-4vcpu-8gb"
   private_networking = true
   monitoring = true
@@ -123,6 +135,12 @@ resource "digitalocean_droplet" "worker" {
     type = "ssh"
     private_key = "${file(var.pvt_key)}"
     timeout = "2m"
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "sudo apt-get update",
+      "sudo apt-get upgrade"
+    ]
   }
   provisioner "remote-exec" {
     scripts = [
@@ -139,7 +157,7 @@ resource "digitalocean_droplet" "worker" {
           -e NODE_IP=${self.ipv4_address_private} \
           -e AWS_ACCESS_KEY_ID=${var.swarm_discovery_s3_access_key_id} \
           -e AWS_SECRET_ACCESS_KEY=${var.swarm_discovery_s3_secret_key} \
-          -e AWS_REGION=eu-central-1 \
+          -e AWS_REGION=${var.swarm_discovery_s3_region} \
           -v /var/run/docker.sock:/var/run/docker.sock \
           mrjgreen/aws-swarm-init
 EOF
