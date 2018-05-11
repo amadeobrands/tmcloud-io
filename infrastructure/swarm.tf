@@ -183,6 +183,17 @@ resource "digitalocean_loadbalancer" "loadbalancer" {
     target_protocol = "https"
     tls_passthrough = true
   }
+  "forwarding_rule" {
+    entry_port = 888
+    entry_protocol = "http"
+    target_port = 888
+    target_protocol = "http"
+  }
+  healthcheck {
+    port = 888
+    protocol = "http"
+    path = "/"
+  }
   name = "${var.swarm_env}-swarm-loadbalancer"
   region = "${var.do_region}"
   droplet_tag = "${var.swarm_env}-docker-swarm-worker"
