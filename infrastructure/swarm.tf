@@ -10,6 +10,13 @@ resource "digitalocean_tag" "docker-swarm-env" {
   name = "${var.swarm_env}-docker-swarm"
 }
 
+resource "aws_s3_bucket" "docker-swarm-init-bucket" {
+  bucket = "${var.swarm_env}.tokens.tmcloud.io"
+  acl = "private"
+  region = "${var.aws_region}"
+  force_destroy = true
+}
+
 resource "digitalocean_droplet" "manager-primary" {
   image = "${var.do_image}"
   name = "${var.swarm_env}-swarm-manager-leader"
@@ -47,17 +54,17 @@ resource "digitalocean_droplet" "manager-primary" {
     inline = [
       <<EOF
         docker run -a STDOUT -a STDERR --restart on-failure:5 \
-          -e SWARM_DISCOVERY_BUCKET=${var.swarm_discovery_s3_bucket} \
+          -e SWARM_DISCOVERY_BUCKET=${aws_s3_bucket.docker-swarm-init-bucket.bucket} \
           -e ROLE=manager \
           -e NODE_IP=${self.ipv4_address_private} \
           -e AWS_ACCESS_KEY_ID=${var.swarm_discovery_s3_access_key_id} \
           -e AWS_SECRET_ACCESS_KEY=${var.swarm_discovery_s3_secret_key} \
-          -e AWS_REGION=${var.swarm_discovery_s3_region} \
+          -e AWS_REGION=${var.aws_region} \
           -v /var/run/docker.sock:/var/run/docker.sock \
           mrjgreen/aws-swarm-init
 EOF
       , # install S3FS volume driver
-      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.volumes_s3_region}",
+      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.aws_region}",
       "docker stack deploy -c /usr/local/src/docker-compose.yml swarmpit"
     ]
   }
@@ -100,17 +107,17 @@ resource "digitalocean_droplet" "manager-replica" {
     inline = [
       <<EOF
         docker run -a STDOUT -a STDERR --restart on-failure:5 \
-          -e SWARM_DISCOVERY_BUCKET=${var.swarm_discovery_s3_bucket} \
+          -e SWARM_DISCOVERY_BUCKET=${aws_s3_bucket.docker-swarm-init-bucket.bucket} \
           -e ROLE=manager \
           -e NODE_IP=${self.ipv4_address_private} \
           -e AWS_ACCESS_KEY_ID=${var.swarm_discovery_s3_access_key_id} \
           -e AWS_SECRET_ACCESS_KEY=${var.swarm_discovery_s3_secret_key} \
-          -e AWS_REGION=${var.swarm_discovery_s3_region} \
+          -e AWS_REGION=${var.aws_region} \
           -v /var/run/docker.sock:/var/run/docker.sock \
           mrjgreen/aws-swarm-init
 EOF
       , # install S3FS volume driver
-      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.volumes_s3_region}"
+      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.aws_region}"
     ]
   }
   tags = ["${var.swarm_env}-docker-swarm-manager", "${var.swarm_env}-docker-swarm"]
@@ -152,17 +159,17 @@ resource "digitalocean_droplet" "worker" {
     inline = [
       <<EOF
         docker run -a STDOUT -a STDERR --restart on-failure:5 \
-          -e SWARM_DISCOVERY_BUCKET=${var.swarm_discovery_s3_bucket} \
+          -e SWARM_DISCOVERY_BUCKET=${aws_s3_bucket.docker-swarm-init-bucket.bucket} \
           -e ROLE=worker \
           -e NODE_IP=${self.ipv4_address_private} \
           -e AWS_ACCESS_KEY_ID=${var.swarm_discovery_s3_access_key_id} \
           -e AWS_SECRET_ACCESS_KEY=${var.swarm_discovery_s3_secret_key} \
-          -e AWS_REGION=${var.swarm_discovery_s3_region} \
+          -e AWS_REGION=${var.aws_region} \
           -v /var/run/docker.sock:/var/run/docker.sock \
           mrjgreen/aws-swarm-init
 EOF
       , # install S3FS volume driver
-      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.volumes_s3_region}"
+      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.aws_region}"
     ]
   }
   tags = ["${var.swarm_env}-docker-swarm-worker", "${var.swarm_env}-docker-swarm"]
@@ -210,4 +217,13 @@ resource "aws_route53_record" "swarm-loadbalancer" {
   type = "A"
   ttl = "300"
   records = ["${digitalocean_loadbalancer.loadbalancer.ip}"]
+}
+
+resource "aws_route53_record" "wildcard-record" {
+  depends_on = ["aws_route53_record.swarm-loadbalancer"]
+  zone_id = "${data.aws_route53_zone.selected.zone_id}"
+  name = "*.${var.swarm_env}.${data.aws_route53_zone.selected.name}"
+  type = "CNAME"
+  ttl = "300"
+  records = ["${aws_route53_record.swarm-loadbalancer.name}"]
 }
