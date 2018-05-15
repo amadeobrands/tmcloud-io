@@ -3,7 +3,7 @@ variable "do_region" {
   default = "fra1"
 }
 variable "do_image" {
-  default = "ubuntu-18-04-x64"
+  default = "docker-16-04"
 }
 
 provider "digitalocean" {
