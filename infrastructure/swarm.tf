@@ -78,6 +78,7 @@ resource "digitalocean_droplet" "manager-primary" {
 EOF
       , # install S3FS volume driver
       "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.aws_region}",
+      "mkdir -p /etc/swarmpit",
       "docker stack deploy -c /usr/local/src/docker-compose.yml swarmpit"
     ]
   }

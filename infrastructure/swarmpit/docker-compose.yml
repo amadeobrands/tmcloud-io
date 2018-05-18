@@ -26,10 +26,13 @@ services:
   db:
     image: klaemo/couchdb:2.0.0
     volumes:
-      - db-data:/opt/couchdb/data
+      - /etc/swarmpit:/opt/couchdb/data
     networks:
       - net
     deploy:
+      placement:
+        constraints:
+          - node.role == manager
       resources:
         limits:
           cpus: '0.30'
@@ -59,7 +62,3 @@ services:
 networks:
   net:
     driver: overlay
-
-volumes:
-  db-data:
-    driver: local
