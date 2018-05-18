@@ -279,7 +279,7 @@ resource "digitalocean_loadbalancer" "loadbalancer" {
   }
   name = "${var.swarm_env}-swarm-loadbalancer"
   region = "${var.do_region}"
-  droplet_tag = "${digitalocean_tag.worker.name}"
+  droplet_tag = "${digitalocean_tag.docker-swarm-env.name}"
 }
 
 data "aws_route53_zone" "selected" {
