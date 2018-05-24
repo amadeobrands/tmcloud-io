@@ -363,7 +363,7 @@ EOF
 
       "sudo mount -o discard,defaults /dev/disk/by-id/scsi-0DO_Volume_${digitalocean_volume.mysql-storage.name} /mnt/mysql-storage",
       "echo /dev/disk/by-id/scsi-0DO_Volume_${digitalocean_volume.mysql-storage.name} /mnt/mysql-storage ext4 defaults,nofail,discard 0 0 | sudo tee -a /etc/fstab",
-      "sudo mkdir -p /mnt/mysql-storage/pg-data",
+      "sudo mkdir -p /mnt/mysql-storage/mysql-data",
     ]
   }
 
