@@ -12,6 +12,7 @@ resource "digitalocean_tag" "postgres" {
 
 resource "digitalocean_tag" "mysql" {
   name = "${var.swarm_env}-docker-swarm-mysql"
+  count = "${var.swarm_mysql_workers_count}"
 }
 
 resource "digitalocean_tag" "docker-swarm-env" {
@@ -32,6 +33,7 @@ resource "digitalocean_volume" "postgres-storage" {
 }
 
 resource "digitalocean_volume" "mysql-storage" {
+  count  = "${var.swarm_mysql_workers_count}"
   name   = "${var.swarm_env}-mysql-storage"
   region = "${var.do_region}"
   size   = 100
@@ -306,7 +308,7 @@ resource "digitalocean_droplet" "mysql" {
     "digitalocean_droplet.manager-primary",
   ]
 
-  count              = 1
+  count              = "${var.swarm_mysql_workers_count}"
   image              = "${var.do_image}"
   name               = "${var.swarm_env}-swarm-mysql-worker-${count.index}"
   region             = "${var.do_region}"

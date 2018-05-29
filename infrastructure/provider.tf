@@ -35,6 +35,9 @@ variable "swarm_manager_replicas_count" {
 variable "swarm_workers_count" {
   default = 1
 }
+variable "swarm_mysql_workers_count" {
+  default = 0
+}
 variable "swarm_discovery_s3_access_key_id" {}
 variable "swarm_discovery_s3_secret_key" {}
 
