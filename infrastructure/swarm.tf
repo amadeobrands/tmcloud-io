@@ -1,425 +1,88 @@
-resource "digitalocean_tag" "manager" {
-  name = "${var.swarm_env}-docker-swarm-manager"
-}
-
-resource "digitalocean_tag" "worker" {
-  name = "${var.swarm_env}-docker-swarm-worker"
-}
-
-resource "digitalocean_tag" "postgres" {
-  name = "${var.swarm_env}-docker-swarm-postgres"
-}
-
-resource "digitalocean_tag" "mysql" {
-  name = "${var.swarm_env}-docker-swarm-mysql"
-  count = "${var.swarm_mysql_workers_count}"
-}
-
-resource "digitalocean_tag" "docker-swarm-env" {
+resource "aws_cloudformation_stack" "swarm" {
   name = "${var.swarm_env}-docker-swarm"
+  template_url = "https://editions-us-east-1.s3.amazonaws.com/aws/stable/Docker.tmpl"
+  capabilities = ["CAPABILITY_IAM"]
+  parameters {
+    ClusterSize = "${var.swarm_workers_count}"
+    EnableCloudStorEfs = "yes"
+    EnableCloudWatchLogs = "yes"
+    EnableEbsOptimized = "yes"
+    EnableSystemPrune = "no"
+    InstanceType = "${var.swarm_worker_instance_type}"
+    KeyName = "${var.ssh_key_name}"
+    ManagerDiskSize = 20
+    ManagerDiskType = "gp2"
+    ManagerInstanceType = "${var.swarm_manager_instance_type}"
+    ManagerSize = "${var.swarm_managers_count}"
+    WorkerDiskSize = 40
+    WorkerDiskType = "gp2"
+  }
 }
 
-resource "aws_s3_bucket" "docker-swarm-init-bucket" {
-  bucket        = "${var.swarm_env}.tokens.tmcloud.io"
-  acl           = "private"
-  region        = "${var.aws_region}"
-  force_destroy = true
+data "aws_subnet_ids" "swarm" {
+  depends_on = ["aws_cloudformation_stack.swarm"]
+  vpc_id = "${aws_cloudformation_stack.swarm.outputs["VPCID"]}"
 }
 
-resource "digitalocean_volume" "postgres-storage" {
-  name   = "${var.swarm_env}-postgres-storage"
-  region = "${var.do_region}"
-  size   = 100
+resource "aws_db_subnet_group" "swarm" {
+  depends_on = ["data.aws_subnet_ids.swarm"]
+  name_prefix = "${var.swarm_env}-swarm-"
+  subnet_ids = ["${data.aws_subnet_ids.swarm.ids}"]
 }
 
-resource "digitalocean_volume" "mysql-storage" {
-  count  = "${var.swarm_mysql_workers_count}"
-  name   = "${var.swarm_env}-mysql-storage"
-  region = "${var.do_region}"
-  size   = 100
-}
-
-resource "digitalocean_droplet" "manager-primary" {
+resource "aws_db_instance" "postgres" {
   depends_on = [
-    "digitalocean_tag.manager",
-    "digitalocean_tag.docker-swarm-env",
-    "aws_s3_bucket.docker-swarm-init-bucket",
+    "aws_cloudformation_stack.swarm",
+    "aws_db_subnet_group.swarm"
   ]
+  identifier = "${var.swarm_env}-postgres"
+  name = "Postgres${title(var.swarm_env)}"
+  count = "${var.rds_postgres_count}"
+  engine = "postgres"
+  engine_version = "${var.rds_postgres_version}"
+  instance_class = "${var.rds_postgres_instance_class}"
 
-  image              = "${var.do_image}"
-  name               = "${var.swarm_env}-swarm-manager-leader"
-  region             = "${var.do_region}"
-  size               = "s-2vcpu-4gb"
-  private_networking = true
-  monitoring         = true
-  user_data          = "#cloud-config\n\nssh_authorized_keys:\n — \"${file("${var.pub_key}")}\"\n"
+  storage_type = "gp2"
+  allocated_storage = 100
+  auto_minor_version_upgrade = true
+  backup_retention_period = "${var.rds_backup_retention_period}"
+  skip_final_snapshot = true
 
-  ssh_keys = [
-    "${var.ssh_fingerprint}",
+  username = "${var.rds_postgres_username}"
+  password = "${var.rds_postgres_password}"
+
+  db_subnet_group_name = "${aws_db_subnet_group.swarm.name}"
+  vpc_security_group_ids = [
+    "${aws_cloudformation_stack.swarm.outputs["NodeSecurityGroupID"]}",
+    "${aws_cloudformation_stack.swarm.outputs["ManagerSecurityGroupID"]}"
   ]
-
-  connection {
-    user        = "root"
-    type        = "ssh"
-    private_key = "${file(var.pvt_key)}"
-    timeout     = "2m"
-  }
-
-  provisioner "file" {
-    source      = "autoupdate/"
-    destination = "/etc/apt/apt.conf.d"
-  }
-
-  provisioner "remote-exec" {
-    scripts = [
-      "provisioning/system-updates.sh",
-      "provisioning/firewall.sh",
-    ]
-  }
-
-  provisioner "file" {
-    source      = "swarmpit/"
-    destination = "/usr/local/src"
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      <<EOF
-        docker run -a STDOUT -a STDERR --restart on-failure:5 \
-          -e SWARM_DISCOVERY_BUCKET=${aws_s3_bucket.docker-swarm-init-bucket.bucket} \
-          -e ROLE=manager \
-          -e NODE_IP=${self.ipv4_address_private} \
-          -e AWS_ACCESS_KEY_ID=${var.swarm_discovery_s3_access_key_id} \
-          -e AWS_SECRET_ACCESS_KEY=${var.swarm_discovery_s3_secret_key} \
-          -e AWS_REGION=${var.aws_region} \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          mrjgreen/aws-swarm-init > /dev/null
-EOF
-      , # install S3FS volume driver
-      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.aws_region}",
-      "mkdir -p /etc/swarmpit",
-      "docker stack deploy -c /usr/local/src/docker-compose.yml swarmpit",
-    ]
-  }
-
-  tags = ["${digitalocean_tag.manager.name}", "${digitalocean_tag.docker-swarm-env.name}"]
 }
 
-resource "digitalocean_droplet" "manager-replica" {
+resource "aws_db_instance" "mysql" {
   depends_on = [
-    "digitalocean_droplet.worker",
-    "digitalocean_droplet.postgres",
-    "digitalocean_droplet.mysql",
+    "aws_cloudformation_stack.swarm",
+    "aws_db_subnet_group.swarm"
   ]
+  skip_final_snapshot = true
+  identifier = "${var.swarm_env}-mysql"
+  count = "${var.rds_mysql_count}"
+  engine = "mysql"
+  engine_version = "${var.rds_mysql_version}"
+  instance_class = "${var.rds_mysql_instance_class}"
 
-  count              = "${var.swarm_manager_replicas_count}"
-  image              = "${var.do_image}"
-  name               = "${var.swarm_env}-swarm-manager-${count.index}"
-  region             = "${var.do_region}"
-  size               = "s-2vcpu-4gb"
-  private_networking = true
-  monitoring         = true
-  user_data          = "#cloud-config\n\nssh_authorized_keys:\n — \"${file("${var.pub_key}")}\"\n"
+  storage_type = "gp2"
+  allocated_storage = 20
+  auto_minor_version_upgrade = true
+  backup_retention_period = "${var.rds_backup_retention_period}"
 
-  ssh_keys = [
-    "${var.ssh_fingerprint}",
+  username = "${var.rds_mysql_username}"
+  password = "${var.rds_mysql_password}"
+
+  db_subnet_group_name = "${aws_db_subnet_group.swarm.name}"
+  vpc_security_group_ids = [
+    "${aws_cloudformation_stack.swarm.outputs["NodeSecurityGroupID"]}",
+    "${aws_cloudformation_stack.swarm.outputs["ManagerSecurityGroupID"]}"
   ]
-
-  connection {
-    user        = "root"
-    type        = "ssh"
-    private_key = "${file(var.pvt_key)}"
-    timeout     = "2m"
-  }
-
-  provisioner "file" {
-    source      = "autoupdate/"
-    destination = "/etc/apt/apt.conf.d"
-  }
-
-  provisioner "remote-exec" {
-    scripts = [
-      "provisioning/system-updates.sh",
-      "provisioning/firewall.sh",
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      <<EOF
-        docker run -a STDOUT -a STDERR --restart on-failure:5 \
-          -e SWARM_DISCOVERY_BUCKET=${aws_s3_bucket.docker-swarm-init-bucket.bucket} \
-          -e ROLE=manager \
-          -e NODE_IP=${self.ipv4_address_private} \
-          -e AWS_ACCESS_KEY_ID=${var.swarm_discovery_s3_access_key_id} \
-          -e AWS_SECRET_ACCESS_KEY=${var.swarm_discovery_s3_secret_key} \
-          -e AWS_REGION=${var.aws_region} \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          mrjgreen/aws-swarm-init > /dev/null
-EOF
-      , # install S3FS volume driver
-      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.aws_region}",
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = "${formatlist("docker node update --label-add io.tmcloud.role=app %s", digitalocean_droplet.worker.*.name)}"
-  }
-
-  provisioner "remote-exec" {
-    inline = "${formatlist("docker node update --label-add io.tmcloud.role=postgres %s", digitalocean_droplet.postgres.*.name)}"
-  }
-
-  provisioner "remote-exec" {
-    inline = "${formatlist("docker node update --label-add io.tmcloud.role=mysql %s", digitalocean_droplet.mysql.*.name)}"
-  }
-
-  tags = ["${digitalocean_tag.manager.name}", "${digitalocean_tag.docker-swarm-env.name}"]
-}
-
-resource "digitalocean_droplet" "worker" {
-  depends_on         = ["digitalocean_droplet.manager-primary"]
-  count              = "${var.swarm_workers_count}"
-  image              = "${var.do_image}"
-  name               = "${var.swarm_env}-swarm-worker-${count.index}"
-  region             = "${var.do_region}"
-  size               = "s-4vcpu-8gb"
-  private_networking = true
-  monitoring         = true
-  user_data          = "#cloud-config\n\nssh_authorized_keys:\n — \"${file("${var.pub_key}")}\"\n"
-
-  ssh_keys = [
-    "${var.ssh_fingerprint}",
-  ]
-
-  connection {
-    user        = "root"
-    type        = "ssh"
-    private_key = "${file(var.pvt_key)}"
-    timeout     = "2m"
-  }
-
-  provisioner "file" {
-    source      = "autoupdate/"
-    destination = "/etc/apt/apt.conf.d"
-  }
-
-  provisioner "remote-exec" {
-    scripts = [
-      "provisioning/system-updates.sh",
-      "provisioning/firewall.sh",
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      <<EOF
-        docker run -a STDOUT -a STDERR --restart on-failure:5 \
-          -e SWARM_DISCOVERY_BUCKET=${aws_s3_bucket.docker-swarm-init-bucket.bucket} \
-          -e ROLE=worker \
-          -e NODE_IP=${self.ipv4_address_private} \
-          -e AWS_ACCESS_KEY_ID=${var.swarm_discovery_s3_access_key_id} \
-          -e AWS_SECRET_ACCESS_KEY=${var.swarm_discovery_s3_secret_key} \
-          -e AWS_REGION=${var.aws_region} \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          mrjgreen/aws-swarm-init > /dev/null
-EOF
-      , # install S3FS volume driver
-      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.aws_region}",
-    ]
-  }
-
-  tags = ["${digitalocean_tag.worker.name}", "${digitalocean_tag.docker-swarm-env.name}"]
-}
-
-resource "digitalocean_droplet" "postgres" {
-  depends_on = [
-    "digitalocean_volume.postgres-storage",
-    "digitalocean_droplet.manager-primary",
-  ]
-
-  count              = 1
-  image              = "${var.do_image}"
-  name               = "${var.swarm_env}-swarm-postgres-worker-${count.index}"
-  region             = "${var.do_region}"
-  size               = "s-4vcpu-8gb"
-  private_networking = true
-  monitoring         = true
-  volume_ids         = ["${digitalocean_volume.postgres-storage.id}"]
-  user_data          = "#cloud-config\n\nssh_authorized_keys:\n — \"${file("${var.pub_key}")}\"\n"
-
-  ssh_keys = [
-    "${var.ssh_fingerprint}",
-  ]
-
-  connection {
-    user        = "root"
-    type        = "ssh"
-    private_key = "${file(var.pvt_key)}"
-    timeout     = "2m"
-  }
-
-  provisioner "file" {
-    source      = "autoupdate/"
-    destination = "/etc/apt/apt.conf.d"
-  }
-
-  provisioner "remote-exec" {
-    scripts = [
-      "provisioning/system-updates.sh",
-      "provisioning/firewall.sh",
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      <<EOF
-        docker run -a STDOUT -a STDERR --restart on-failure:5 \
-          -e SWARM_DISCOVERY_BUCKET=${aws_s3_bucket.docker-swarm-init-bucket.bucket} \
-          -e ROLE=worker \
-          -e NODE_IP=${self.ipv4_address_private} \
-          -e AWS_ACCESS_KEY_ID=${var.swarm_discovery_s3_access_key_id} \
-          -e AWS_SECRET_ACCESS_KEY=${var.swarm_discovery_s3_secret_key} \
-          -e AWS_REGION=${var.aws_region} \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          mrjgreen/aws-swarm-init > /dev/null
-EOF
-      , # install S3FS volume driver
-      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.aws_region}",
-
-      # Format DO Volume
-      "sudo mkfs.ext4 -F /dev/disk/by-id/scsi-0DO_Volume_${digitalocean_volume.postgres-storage.name}",
-
-      # Mount DO Volume
-      "sudo mkdir -p /mnt/postgres-storage",
-
-      "sudo mount -o discard,defaults /dev/disk/by-id/scsi-0DO_Volume_${digitalocean_volume.postgres-storage.name} /mnt/postgres-storage",
-      "echo /dev/disk/by-id/scsi-0DO_Volume_${digitalocean_volume.postgres-storage.name} /mnt/postgres-storage ext4 defaults,nofail,discard 0 0 | sudo tee -a /etc/fstab",
-      "sudo mkdir -p /mnt/postgres-storage/pg-data",
-    ]
-  }
-
-  tags = ["${digitalocean_tag.postgres.name}", "${digitalocean_tag.docker-swarm-env.name}"]
-}
-
-resource "digitalocean_droplet" "mysql" {
-  depends_on = [
-    "digitalocean_volume.mysql-storage",
-    "digitalocean_droplet.manager-primary",
-  ]
-
-  count              = "${var.swarm_mysql_workers_count}"
-  image              = "${var.do_image}"
-  name               = "${var.swarm_env}-swarm-mysql-worker-${count.index}"
-  region             = "${var.do_region}"
-  size               = "s-4vcpu-8gb"
-  private_networking = true
-  monitoring         = true
-  volume_ids         = ["${digitalocean_volume.mysql-storage.id}"]
-  user_data          = "#cloud-config\n\nssh_authorized_keys:\n — \"${file("${var.pub_key}")}\"\n"
-
-  ssh_keys = [
-    "${var.ssh_fingerprint}",
-  ]
-
-  connection {
-    user        = "root"
-    type        = "ssh"
-    private_key = "${file(var.pvt_key)}"
-    timeout     = "2m"
-  }
-
-  provisioner "file" {
-    source      = "autoupdate/"
-    destination = "/etc/apt/apt.conf.d"
-  }
-
-  provisioner "remote-exec" {
-    scripts = [
-      "provisioning/system-updates.sh",
-      "provisioning/firewall.sh",
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      <<EOF
-        docker run -a STDOUT -a STDERR --restart on-failure:5 \
-          -e SWARM_DISCOVERY_BUCKET=${aws_s3_bucket.docker-swarm-init-bucket.bucket} \
-          -e ROLE=worker \
-          -e NODE_IP=${self.ipv4_address_private} \
-          -e AWS_ACCESS_KEY_ID=${var.swarm_discovery_s3_access_key_id} \
-          -e AWS_SECRET_ACCESS_KEY=${var.swarm_discovery_s3_secret_key} \
-          -e AWS_REGION=${var.aws_region} \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          mrjgreen/aws-swarm-init > /dev/null
-EOF
-      , # install S3FS volume driver
-      "docker plugin install --grant-all-permissions rexray/s3fs S3FS_ACCESSKEY=${var.volumes_s3_access_key_id} S3FS_SECRETKEY=${var.volumes_s3_secret_key} S3FS_REGION=${var.aws_region}",
-
-      # Format DO Volume
-      "sudo mkfs.ext4 -F /dev/disk/by-id/scsi-0DO_Volume_${digitalocean_volume.mysql-storage.name}",
-
-      # Mount DO Volume
-      "sudo mkdir -p /mnt/mysql-storage",
-
-      "sudo mount -o discard,defaults /dev/disk/by-id/scsi-0DO_Volume_${digitalocean_volume.mysql-storage.name} /mnt/mysql-storage",
-      "echo /dev/disk/by-id/scsi-0DO_Volume_${digitalocean_volume.mysql-storage.name} /mnt/mysql-storage ext4 defaults,nofail,discard 0 0 | sudo tee -a /etc/fstab",
-      "sudo mkdir -p /mnt/mysql-storage/mysql-data",
-    ]
-  }
-
-  tags = ["${digitalocean_tag.mysql.name}", "${digitalocean_tag.docker-swarm-env.name}"]
-}
-
-resource "digitalocean_loadbalancer" "loadbalancer" {
-  depends_on = ["digitalocean_droplet.worker"]
-
-  "forwarding_rule" {
-    entry_port      = 80
-    entry_protocol  = "http"
-    target_port     = 80
-    target_protocol = "http"
-  }
-
-  "forwarding_rule" {
-    entry_port      = 443
-    entry_protocol  = "https"
-    target_port     = 443
-    target_protocol = "https"
-    tls_passthrough = true
-  }
-
-  "forwarding_rule" {
-    entry_port      = 888
-    entry_protocol  = "http"
-    target_port     = 888
-    target_protocol = "http"
-  }
-
-  "forwarding_rule" {
-    entry_port      = 8080
-    entry_protocol  = "http"
-    target_port     = 8080
-    target_protocol = "http"
-  }
-
-  "forwarding_rule" {
-    entry_port      = 8888
-    entry_protocol  = "http"
-    target_port     = 8888
-    target_protocol = "http"
-  }
-
-  healthcheck {
-    port     = 888
-    protocol = "http"
-    path     = "/"
-  }
-
-  name        = "${var.swarm_env}-swarm-loadbalancer"
-  region      = "${var.do_region}"
-  droplet_tag = "${digitalocean_tag.docker-swarm-env.name}"
 }
 
 data "aws_route53_zone" "selected" {
@@ -427,19 +90,54 @@ data "aws_route53_zone" "selected" {
 }
 
 resource "aws_route53_record" "swarm-loadbalancer" {
-  depends_on = ["digitalocean_loadbalancer.loadbalancer"]
-  zone_id    = "${data.aws_route53_zone.selected.zone_id}"
-  name       = "${var.swarm_env}.${data.aws_route53_zone.selected.name}"
-  type       = "A"
-  ttl        = "300"
-  records    = ["${digitalocean_loadbalancer.loadbalancer.ip}"]
+  depends_on = ["aws_cloudformation_stack.swarm"]
+  zone_id = "${data.aws_route53_zone.selected.zone_id}"
+  name = "${var.swarm_env}.${data.aws_route53_zone.selected.name}"
+  type = "A"
+  alias {
+    name = "${aws_cloudformation_stack.swarm.outputs["DefaultDNSTarget"]}"
+    zone_id = "${aws_cloudformation_stack.swarm.outputs["ELBDNSZoneID"]}"
+    evaluate_target_health = true
+  }
 }
 
 resource "aws_route53_record" "wildcard-record" {
   depends_on = ["aws_route53_record.swarm-loadbalancer"]
-  zone_id    = "${data.aws_route53_zone.selected.zone_id}"
-  name       = "*.${var.swarm_env}.${data.aws_route53_zone.selected.name}"
-  type       = "CNAME"
-  ttl        = "300"
-  records    = ["${aws_route53_record.swarm-loadbalancer.name}"]
+  zone_id = "${data.aws_route53_zone.selected.zone_id}"
+  name = "*.${var.swarm_env}.${data.aws_route53_zone.selected.name}"
+  type = "CNAME"
+  ttl = "300"
+  records = ["${aws_route53_record.swarm-loadbalancer.name}"]
+}
+
+output "swarm_vpc_id" {
+  value = "${aws_cloudformation_stack.swarm.outputs["VPCID"]}"
+}
+
+output "swarm_node_security_group" {
+  value = "${aws_cloudformation_stack.swarm.outputs["NodeSecurityGroupID"]}"
+}
+
+output "swarm_manager_secutity_group" {
+  value = "${aws_cloudformation_stack.swarm.outputs["ManagerSecurityGroupID"]}"
+}
+
+output "swarm_loadbalancer_dns_target" {
+  value = "${aws_cloudformation_stack.swarm.outputs["DefaultDNSTarget"]}"
+}
+
+output "swarm_loadbalancer_zone_id" {
+  value = "${aws_cloudformation_stack.swarm.outputs["ELBDNSZoneID"]}"
+}
+
+output "swarm_managers" {
+  value = "${aws_cloudformation_stack.swarm.outputs["Managers"]}"
+}
+
+output "rds_postgres_address" {
+  value = "${aws_db_instance.postgres.*.address}"
+}
+
+output "rds_mysql_address" {
+  value = "${aws_db_instance.mysql.*.address}"
 }
