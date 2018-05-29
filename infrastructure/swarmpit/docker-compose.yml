@@ -11,7 +11,15 @@ services:
       - 888:8080
     networks:
       - net
+      - proxy_net
+    logging:
+      driver: json-file
     deploy:
+      labels:
+        - traefik.docker.network=proxy_net	
+        - traefik.enable=true	
+        - traefik.port=8080
+        - "traefik.frontend.rule=Host:swarmpit.dev.tmcloud.io"
       resources:
         limits:
           cpus: '0.50'
@@ -26,13 +34,12 @@ services:
   db:
     image: klaemo/couchdb:2.0.0
     volumes:
-      - /etc/swarmpit:/opt/couchdb/data
+      - db-data:/opt/couchdb/data
     networks:
       - net
+    logging:
+      driver: json-file
     deploy:
-      placement:
-        constraints:
-          - node.role == manager
       resources:
         limits:
           cpus: '0.30'
@@ -49,6 +56,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - net
+    logging:
+      driver: json-file
     deploy:
       mode: global
       resources:
@@ -62,3 +71,9 @@ services:
 networks:
   net:
     driver: overlay
+  proxy_net:
+    external: true
+
+volumes:
+  db-data:
+    driver: cloudstor:aws
