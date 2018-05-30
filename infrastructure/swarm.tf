@@ -214,7 +214,7 @@ resource "null_resource" "postgres-password-secret" {
 
   provisioner "remote-exec" {
     inline = [
-      "echo '${var.rds_postgres_password}' | docker secret create postgress-password -"
+      "echo '${var.rds_postgres_password}' | docker secret create postgres-password -"
     ]
   }
 }
