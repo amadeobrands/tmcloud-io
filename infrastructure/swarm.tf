@@ -68,6 +68,10 @@ data "template_file" "swarmpit-stack" {
 }
 
 resource "null_resource" "swarmpit" {
+  depends_on = [
+    "data.aws_instances.managers",
+    "data.template_file.swarmpit-stack"
+  ]
   connection {
     type = "ssh"
     user = "docker"
@@ -102,12 +106,50 @@ output "swarmpit-host" {
 
 ## Traefik
 
-/*
-  TODO: provision Traefik stack
-  * [ ] create Route53 secrets
-  * [ ] generate correct docker domain URI `${var.swarm_env}.tmcloud.io`
-  * [ ] deploy `traefik` stack
-*/
+data "template_file" "traefik-stack" {
+  template = "${file("traefik/docker-compose.yml")}"
+
+  vars {
+    acme_ca_server = "https://acme-staging-v02.api.letsencrypt.org/directory"
+    acme_domains = "*.${var.swarm_env}.tmcloud.io,${var.swarm_env}.tmcloud.io"
+    acme_aws_access_key = "${var.acme_aws_access_key}"
+    acme_aws_secret_key = "${var.acme_aws_secret_key}"
+    docker_domain = "${var.swarm_env}.tmcloud.io"
+  }
+}
+
+resource "null_resource" "traefik" {
+  depends_on = [
+    "data.aws_instances.managers",
+    "null_resource.swarmpit",
+    "data.template_file.traefik-stack"
+  ]
+  connection {
+    type = "ssh"
+    user = "docker"
+    private_key = "${file(var.ssh_key_file)}"
+
+    host = "${element(data.aws_instances.managers.public_ips, 0)}"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "rm -rf ./traefik",
+      "mkdir -p ./traefik"
+    ]
+  }
+
+  provisioner "file" {
+    content = "${data.template_file.traefik-stack.rendered}"
+    destination = "./traefik/docker-compose.yml"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "docker stack deploy -c ./traefik/docker-compose.yml traefik"
+    ]
+  }
+}
 
 ## Swarm DBs subnet
 
@@ -156,6 +198,27 @@ output "rds_postgres_address" {
   value = "${aws_db_instance.postgres.*.address}"
 }
 
+resource "null_resource" "postgres-password-secret" {
+  depends_on = [
+    "aws_db_instance.postgres",
+    "data.aws_instances.managers"
+  ]
+
+  connection {
+    type = "ssh"
+    user = "docker"
+    private_key = "${file(var.ssh_key_file)}"
+
+    host = "${element(data.aws_instances.managers.public_ips, 0)}"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "echo '${var.rds_postgres_password}' | docker secret create postgress-password -"
+    ]
+  }
+}
+
 ## MySQL DB
 
 resource "aws_db_instance" "mysql" {
@@ -187,6 +250,27 @@ resource "aws_db_instance" "mysql" {
 
 output "rds_mysql_address" {
   value = "${aws_db_instance.mysql.*.address}"
+}
+
+resource "null_resource" "mysql-password-secret" {
+  depends_on = [
+    "aws_db_instance.mysql",
+    "data.aws_instances.managers"
+  ]
+
+  connection {
+    type = "ssh"
+    user = "docker"
+    private_key = "${file(var.ssh_key_file)}"
+
+    host = "${element(data.aws_instances.managers.public_ips, 0)}"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "echo '${var.rds_mysql_password}' | docker secret create mysql-password -"
+    ]
+  }
 }
 
 ## DNS records

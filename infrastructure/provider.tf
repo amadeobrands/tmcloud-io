@@ -16,6 +16,9 @@ provider "aws" {
   region = "${var.aws_region}"
 }
 
+variable "acme_aws_access_key" {}
+variable "acme_aws_secret_key" {}
+
 variable "swarm_env" {
   default = "test"
 }
