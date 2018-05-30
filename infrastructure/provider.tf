@@ -5,6 +5,7 @@ variable "aws_region" {
   default = "eu-central-1"
 }
 
+variable "ssh_key_file" {}
 variable "ssh_key_name" {
   default = "swarm"
 }

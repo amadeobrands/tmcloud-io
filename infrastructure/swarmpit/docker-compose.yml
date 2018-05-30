@@ -11,15 +11,15 @@ services:
       - 888:8080
     networks:
       - net
-      - proxy_net
+      - proxy
     logging:
       driver: json-file
     deploy:
       labels:
-        - traefik.docker.network=proxy_net	
-        - traefik.enable=true	
+        - traefik.docker.network=proxy
+        - traefik.enable=true
         - traefik.port=8080
-        - "traefik.frontend.rule=Host:swarmpit.dev.tmcloud.io"
+        - "traefik.frontend.rule=Host:${swarmpit_host}"
       resources:
         limits:
           cpus: '0.50'
@@ -71,7 +71,7 @@ services:
 networks:
   net:
     driver: overlay
-  proxy_net:
+  proxy:
     external: true
 
 volumes:

@@ -45,14 +45,60 @@ output "swarm_managers" {
   value = "${aws_cloudformation_stack.swarm.outputs["Managers"]}"
 }
 
+## Swarm managers for stacks deployments
+
+data "aws_instances" "managers" {
+  instance_tags {
+    Name = "${aws_cloudformation_stack.swarm.name}-Manager"
+  }
+}
+
+output "swarm_managers_ids" {
+  value = "${data.aws_instances.managers.ids[0]}"
+}
+
 ## Swarmpit
 
-/*
- TODO: provision Swarmpit stack
-  * [ ] create `proxy` network
-  * [ ] generate correct swarmpit URI `swarmpit.${var.swarm_env}.tmcloud.io`
-  * [ ] deploy `swarmpit` stack
-*/
+data "template_file" "swarmpit-stack" {
+  template = "${file("swarmpit/docker-compose.yml")}"
+
+  vars {
+    swarmpit_host = "swarmpit.${var.swarm_env}.tmcloud.io"
+  }
+}
+
+resource "null_resource" "swarmpit" {
+  connection {
+    type = "ssh"
+    user = "docker"
+    private_key = "${file(var.ssh_key_file)}"
+
+    host = "${element(data.aws_instances.managers.public_ips, 0)}"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "rm -rf ./swarmpit",
+      "mkdir -p ./swarmpit"
+    ]
+  }
+
+  provisioner "file" {
+    content = "${data.template_file.swarmpit-stack.rendered}"
+    destination = "./swarmpit/docker-compose.yml"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "docker network create --driver overlay proxy",
+      "docker stack deploy -c ./swarmpit/docker-compose.yml swarmpit"
+    ]
+  }
+}
+
+output "swarmpit-host" {
+  value = "${data.template_file.swarmpit-stack.vars.swarmpit_host}"
+}
 
 ## Traefik
 
