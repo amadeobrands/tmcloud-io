@@ -25,7 +25,7 @@ services:
 
   proxy:
     image: traefik:1.6.2
-    command: 
+    command:
     - "--api"
     - "--accesslog"
     - "--traefiklog"
@@ -37,11 +37,11 @@ services:
     - "--acme.entryPoint=https"
     - "--acme.httpChallenge.entryPoint=http"
     - "--acme.acmeLogging=true"
-    - "--acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory"
+    - "--acme.caServer=${acme_ca_server}"
     - "--acme.onHostRule=true"
     - "--acme.onDemand=false"
     - "--acme.email=admin+letsencrypt@topmonks.com"
-    - "--acme.domains=*.dev.tmcloud.io,dev.tmcloud.io"
+    - "--acme.domains=${acme_domains}"
     - "--acme.dnsChallenge"
     - "--acme.dnsChallenge.provider=route53"
     - "--acme.dnsChallenge.delayBeforeCheck=180"
@@ -49,17 +49,17 @@ services:
     - "--docker.swarmMode"
     - "--docker.endpoint=tcp://socat:2375"
     - "--docker.exposedByDefault=false"
-    - "--docker.domain=aws.tmcloud.io"
+    - "--docker.domain=${docker_domain}"
     - "--docker.watch"
     environment:
-     AWS_ACCESS_KEY_ID: "AKIAJAJFUNLHT2MRW3PQ"
-     AWS_SECRET_ACCESS_KEY: "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"
+     AWS_ACCESS_KEY_ID: ${acme_aws_access_key}
+     AWS_SECRET_ACCESS_KEY: ${acme_aws_secret_key}
      AWS_REGION: "us-east-1"
     volumes:
       - etc:/etc/traefik
     networks:
       - net
-      - proxy_net
+      - proxy
     ports:
       - "80:80"
       - "443:443"
@@ -75,15 +75,15 @@ services:
         delay: 10s
       restart_policy:
         condition: on-failure
-        
+
 volumes:
   etc:
     driver: cloudstor:aws
-    driver_opts: 
+    driver_opts:
       filemode: "0600"
-      
+
 networks:
   net:
     driver: overlay
-  proxy_net:
+  proxy:
     external: true
