@@ -1,3 +1,5 @@
+## Docker for AWS
+
 resource "aws_cloudformation_stack" "swarm" {
   name = "${var.swarm_env}-docker-swarm"
   template_url = "https://editions-us-east-1.s3.amazonaws.com/aws/stable/Docker.tmpl"
@@ -8,16 +10,60 @@ resource "aws_cloudformation_stack" "swarm" {
     EnableCloudWatchLogs = "yes"
     EnableEbsOptimized = "yes"
     EnableSystemPrune = "no"
-    InstanceType = "${var.swarm_worker_instance_type}"
+    InstanceType = "${var.swarm_workers_instance_type}"
     KeyName = "${var.ssh_key_name}"
     ManagerDiskSize = 20
     ManagerDiskType = "gp2"
-    ManagerInstanceType = "${var.swarm_manager_instance_type}"
+    ManagerInstanceType = "${var.swarm_managers_instance_type}"
     ManagerSize = "${var.swarm_managers_count}"
     WorkerDiskSize = 40
     WorkerDiskType = "gp2"
   }
 }
+
+output "swarm_vpc_id" {
+  value = "${aws_cloudformation_stack.swarm.outputs["VPCID"]}"
+}
+
+output "swarm_node_security_group" {
+  value = "${aws_cloudformation_stack.swarm.outputs["NodeSecurityGroupID"]}"
+}
+
+output "swarm_manager_secutity_group" {
+  value = "${aws_cloudformation_stack.swarm.outputs["ManagerSecurityGroupID"]}"
+}
+
+output "swarm_loadbalancer_dns_target" {
+  value = "${aws_cloudformation_stack.swarm.outputs["DefaultDNSTarget"]}"
+}
+
+output "swarm_loadbalancer_zone_id" {
+  value = "${aws_cloudformation_stack.swarm.outputs["ELBDNSZoneID"]}"
+}
+
+output "swarm_managers" {
+  value = "${aws_cloudformation_stack.swarm.outputs["Managers"]}"
+}
+
+## Swarmpit
+
+/*
+ TODO: provision Swarmpit stack
+  * [ ] create `proxy` network
+  * [ ] generate correct swarmpit URI `swarmpit.${var.swarm_env}.tmcloud.io`
+  * [ ] deploy `swarmpit` stack
+*/
+
+## Traefik
+
+/*
+  TODO: provision Traefik stack
+  * [ ] create Route53 secrets
+  * [ ] generate correct docker domain URI `${var.swarm_env}.tmcloud.io`
+  * [ ] deploy `traefik` stack
+*/
+
+## Swarm DBs subnet
 
 data "aws_subnet_ids" "swarm" {
   depends_on = ["aws_cloudformation_stack.swarm"]
@@ -29,6 +75,8 @@ resource "aws_db_subnet_group" "swarm" {
   name_prefix = "${var.swarm_env}-swarm-"
   subnet_ids = ["${data.aws_subnet_ids.swarm.ids}"]
 }
+
+## Postgres DB
 
 resource "aws_db_instance" "postgres" {
   depends_on = [
@@ -58,6 +106,12 @@ resource "aws_db_instance" "postgres" {
   ]
 }
 
+output "rds_postgres_address" {
+  value = "${aws_db_instance.postgres.*.address}"
+}
+
+## MySQL DB
+
 resource "aws_db_instance" "mysql" {
   depends_on = [
     "aws_cloudformation_stack.swarm",
@@ -85,6 +139,12 @@ resource "aws_db_instance" "mysql" {
   ]
 }
 
+output "rds_mysql_address" {
+  value = "${aws_db_instance.mysql.*.address}"
+}
+
+## DNS records
+
 data "aws_route53_zone" "selected" {
   name = "tmcloud.io."
 }
@@ -110,34 +170,3 @@ resource "aws_route53_record" "wildcard-record" {
   records = ["${aws_route53_record.swarm-loadbalancer.name}"]
 }
 
-output "swarm_vpc_id" {
-  value = "${aws_cloudformation_stack.swarm.outputs["VPCID"]}"
-}
-
-output "swarm_node_security_group" {
-  value = "${aws_cloudformation_stack.swarm.outputs["NodeSecurityGroupID"]}"
-}
-
-output "swarm_manager_secutity_group" {
-  value = "${aws_cloudformation_stack.swarm.outputs["ManagerSecurityGroupID"]}"
-}
-
-output "swarm_loadbalancer_dns_target" {
-  value = "${aws_cloudformation_stack.swarm.outputs["DefaultDNSTarget"]}"
-}
-
-output "swarm_loadbalancer_zone_id" {
-  value = "${aws_cloudformation_stack.swarm.outputs["ELBDNSZoneID"]}"
-}
-
-output "swarm_managers" {
-  value = "${aws_cloudformation_stack.swarm.outputs["Managers"]}"
-}
-
-output "rds_postgres_address" {
-  value = "${aws_db_instance.postgres.*.address}"
-}
-
-output "rds_mysql_address" {
-  value = "${aws_db_instance.mysql.*.address}"
-}
