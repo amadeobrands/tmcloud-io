@@ -1,0 +1,93 @@
+{% extends 'layouts/application.njk' %}
+
+{% block content %}
+<main class="mdc-layout-grid">
+  <div class="mdc-layout-grid__inner">
+    <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6-desktop">
+      <div class="mdc-layout-grid__inner">
+        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+          <h1><img class="logo" src="images/tm-cloud-logo.svg" alt="TM Cloud" width="240"></h1>
+        </div>
+        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6-desktop">
+          <h2>Production</h2>
+          <ul class="mdc-list">
+            <li>
+              <a class="mdc-list-item"
+                 href="https://eu-central-1.console.aws.amazon.com/ec2/v2/home?region=eu-central-1#Instances:tag:swarm-stack-id=arn:aws:cloudformation:eu-central-1:661884430919:stack/prod-docker-swarm/2d98bd90-640c-11e8-b451-50a68ad4f2fe;sort=instanceId">
+                <img alt="[icon] AWS EC2" src="https://blog.ismg.kdl.co.jp/wp-content/uploads/2017/05/ec2.png"
+                     class="mdc-list-item__graphic">
+                <span class="mdc-list-item__text">AWS EC2</span>
+              </a>
+            </li>
+            <li>
+              <a class="mdc-list-item" href="https://swarmpit.prod.tmcloud.io/">
+                <img alt="[icon] Swarmpit" src="https://swarmpit.io/img/apple-touch-icon.png"
+                     class="mdc-list-item__graphic">
+                <span class="mdc-list-item__text">Swarmpit</span>
+              </a>
+            </li>
+            <li>
+              <a class="mdc-list-item" href="https://monitoring.prod.tmcloud.io/">
+                <img alt="[icon] Chronograf" src="https://influxdata.github.io/branding/img/avatars/square-e.jpg"
+                     class="mdc-list-item__graphic">
+                <span class="mdc-list-item__text">Monitoring</span>
+              </a>
+            </li>
+            <li>
+              <a class="mdc-list-item" href="https://sqlpad.prod.tmcloud.io">
+                <img alt="[icon] Postgres" src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Postgresql_elephant.svg/200px-Postgresql_elephant.svg.png"
+                     class="mdc-list-item__graphic">
+                <span class="mdc-list-item__text">SqlPad</span>
+              </a>
+            </li>
+            <li>
+              <a class="mdc-list-item" href="https://rollbar.com/TopMonks/Quickshirt/">
+                <img alt="[icon] Rollbar" src="https://techcrunch.com/wp-content/uploads/2013/02/rollbar-sq-2.png"
+                     class="mdc-list-item__graphic">
+                <span class="mdc-list-item__text">Rollbar Dashboard</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6-desktop">
+          <h2>Development</h2>
+          <ul class="mdc-list">
+            <li>
+              <a class="mdc-list-item"
+                 href="https://eu-central-1.console.aws.amazon.com/ec2/v2/home?region=eu-central-1#Instances:tag:swarm-stack-id=arn:aws:cloudformation:eu-central-1:661884430919:stack/dev-docker-swarm/486bcd90-6378-11e8-b0d5-503f308adbae;sort=instanceId">
+                <img alt="[icon] AWS EC2" src="https://blog.ismg.kdl.co.jp/wp-content/uploads/2017/05/ec2.png"
+                     class="mdc-list-item__graphic">
+                <span class="mdc-list-item__text">AWS EC2</span>
+              </a>
+            </li>
+            <li>
+              <a class="mdc-list-item" href="https://swarmpit.dev.tmcloud.io/">
+                <img alt="[icon] Swarmpit" src="https://swarmpit.io/img/apple-touch-icon.png"
+                     class="mdc-list-item__graphic">
+                <span class="mdc-list-item__text">Swarmpit</span>
+              </a>
+            </li>
+            <li>
+              <a class="mdc-list-item" href="https://monitoring.dev.tmcloud.io/">
+                <img alt="[icon] Chronograf" src="https://influxdata.github.io/branding/img/avatars/square-e.jpg"
+                     class="mdc-list-item__graphic">
+                <span class="mdc-list-item__text">Monitoring</span>
+              </a>
+            </li>
+            <li>
+              <a class="mdc-list-item" href="https://sqlpad.dev.tmcloud.io">
+                <img alt="[icon] Postgres" src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Postgresql_elephant.svg/200px-Postgresql_elephant.svg.png"
+                     class="mdc-list-item__graphic">
+                <span class="mdc-list-item__text">SqlPad</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6-desktop">
+      <iframe id="apex" src="https://status.ping.apex.sh/d38ed1f6-9309-45bf-8540-d712a3a00e4c"></iframe>
+    </div>
+  </div>
+  </main>
+  {% endblock %}
